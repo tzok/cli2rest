@@ -89,12 +89,6 @@ async def run_command(request: CommandRequest) -> Dict[str, Any]:
             )
 
 
-@app.get("/")
-async def root():
-    """Root endpoint that returns a welcome message."""
-    return {"message": "Welcome to CLI Tool Wrapper API"}
-
-
 @app.get("/health")
 async def health():
     """Health check endpoint that returns the service status."""
