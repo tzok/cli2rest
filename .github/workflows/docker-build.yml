@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
       
@@ -31,3 +34,8 @@ jobs:
           sleep 5  # Wait for container to start
           curl -s http://localhost:8000/ | grep "Welcome"
           docker stop cli2rest-test
+          
+      - name: Check registry access
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "This step would push to the registry in the docker-publish workflow"

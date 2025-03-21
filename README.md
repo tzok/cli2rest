@@ -16,7 +16,21 @@ A FastAPI wrapper that allows running any CLI tool through a REST API. This serv
 - Docker
 - Python 3.8+ (for local development)
 
-### Building the Docker Image
+### Using the Pre-built Image
+
+Pull the image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/tzok/cli2rest:latest
+```
+
+Run the container:
+
+```bash
+docker run -p 8000:8000 ghcr.io/tzok/cli2rest:latest
+```
+
+### Building the Docker Image Locally
 
 Build the Docker image with:
 
@@ -44,12 +58,13 @@ The API will be available at http://localhost:8000.
 
 ```json
 {
-  "cli_tool": "string",         // The CLI tool to run
-  "arguments": ["string"],      // List of arguments to pass to the tool
-  "files": [                    // Files to create before running the command
+  "cli_tool": "string", // The CLI tool to run
+  "arguments": ["string"], // List of arguments to pass to the tool
+  "files": [
+    // Files to create before running the command
     {
       "relative_path": "string", // Path relative to the working directory
-      "content": "string"        // Content of the file
+      "content": "string" // Content of the file
     }
   ],
   "working_directory": "string" // Optional: subdirectory to run the command from
@@ -60,10 +75,10 @@ The API will be available at http://localhost:8000.
 
 ```json
 {
-  "stdout": "string",           // Standard output from the command
-  "stderr": "string",           // Standard error from the command
-  "exit_code": 0,               // Exit code from the command
-  "command": "string"           // The command that was executed
+  "stdout": "string", // Standard output from the command
+  "stderr": "string", // Standard error from the command
+  "exit_code": 0, // Exit code from the command
+  "command": "string" // The command that was executed
 }
 ```
 
