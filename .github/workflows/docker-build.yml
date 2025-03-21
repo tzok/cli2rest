@@ -32,7 +32,7 @@ jobs:
         run: |
           docker run --name cli2rest-test -d -p 8000:8000 cli2rest:test
           sleep 5  # Wait for container to start
-          curl -s http://localhost:8000/ | grep "Welcome"
+          curl -s http://localhost:8000/health | grep '"status":"healthy"'
           docker stop cli2rest-test
           
       - name: Check registry access
