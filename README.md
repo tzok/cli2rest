@@ -116,7 +116,7 @@ You can use this image as a base for custom CLI tool wrappers:
 1. Create a new Dockerfile:
 
 ```dockerfile
-FROM cli2rest:latest
+FROM ghcr.io/tzok/cli2rest:latest
 
 # Install additional tools
 RUN apt-get update && apt-get install -y \
