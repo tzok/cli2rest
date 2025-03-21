@@ -21,7 +21,7 @@ A FastAPI wrapper that allows running any CLI tool through a REST API. This serv
 Build the Docker image with:
 
 ```bash
-docker build -t cli-wrapper-api .
+docker build -t cli2rest .
 ```
 
 ### Running the Container
@@ -29,7 +29,7 @@ docker build -t cli-wrapper-api .
 Run the container with:
 
 ```bash
-docker run -p 8000:8000 cli-wrapper-api
+docker run -p 8000:8000 cli2rest
 ```
 
 The API will be available at http://localhost:8000.
@@ -101,7 +101,7 @@ You can use this image as a base for custom CLI tool wrappers:
 1. Create a new Dockerfile:
 
 ```dockerfile
-FROM cli-wrapper-api:latest
+FROM cli2rest:latest
 
 # Install additional tools
 RUN apt-get update && apt-get install -y \
@@ -119,13 +119,13 @@ COPY custom-config.json /app/
 2. Build your custom image:
 
 ```bash
-docker build -t custom-cli-wrapper .
+docker build -t custom-cli2rest .
 ```
 
 3. Run your custom image:
 
 ```bash
-docker run -p 8000:8000 custom-cli-wrapper
+docker run -p 8000:8000 custom-cli2rest
 ```
 
 ## Security Considerations
