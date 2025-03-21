@@ -11,14 +11,14 @@ payload = {
     "files": [
         {
             "relative_path": "test/example.txt",
-            "content": "This is an example file content."
+            "content": "This is an example file content.",
         },
         {
             "relative_path": "test/nested/another.txt",
-            "content": "This is another file in a nested directory."
-        }
+            "content": "This is another file in a nested directory.",
+        },
     ],
-    "working_directory": "test"  # Optional: run command from this subdirectory
+    "working_directory": "test",  # Optional: run command from this subdirectory
 }
 
 # Send request to API
