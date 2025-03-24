@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+  pull_request:
+    types: [closed]
+    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -13,6 +16,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # Only run this job if it's a push event or if it's a PR that was merged to main
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     permissions:
       contents: read
       packages: write
