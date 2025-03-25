@@ -1,13 +1,18 @@
 import os
-import shutil
 import subprocess
 import tempfile
+import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 app = FastAPI(title="CLI Tool Wrapper API")
+
+# Create a thread pool with the number of CPU cores
+MAX_WORKERS = multiprocessing.cpu_count()
+executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
 class FileData(BaseModel):
@@ -35,17 +40,10 @@ class CommandResponse(BaseModel):
     command: str
 
 
-@app.post("/run-command", response_model=CommandResponse)
-async def run_command(request: CommandRequest) -> Dict[str, Any]:
+def execute_command(request: CommandRequest) -> Dict[str, Any]:
     """
-    Run a CLI tool with the provided arguments and files.
-
-    The API will:
-    1. Create a temporary directory
-    2. Recreate the directory structure based on relative paths
-    3. Write file contents to the appropriate locations
-    4. Run the CLI tool with the provided arguments
-    5. Return the command output
+    Execute a CLI command in a temporary directory with the provided files.
+    This function is designed to be run in a separate thread.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create files with their directory structure
@@ -89,7 +87,48 @@ async def run_command(request: CommandRequest) -> Dict[str, Any]:
             )
 
 
+@app.post("/run-command", response_model=CommandResponse)
+async def run_command(request: CommandRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """
+    Run a CLI tool with the provided arguments and files.
+
+    The API will:
+    1. Create a temporary directory
+    2. Recreate the directory structure based on relative paths
+    3. Write file contents to the appropriate locations
+    4. Run the CLI tool with the provided arguments
+    5. Return the command output
+    
+    Requests are processed in parallel up to the number of CPU cores.
+    """
+    # Submit the task to the thread pool and wait for the result
+    result = await app.state.loop.run_in_executor(
+        executor, 
+        execute_command, 
+        request
+    )
+    
+    return result
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint that returns the service status."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "workers": MAX_WORKERS,
+        "active_threads": len(executor._threads)
+    }
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Store the event loop on startup for use with the executor."""
+    import asyncio
+    app.state.loop = asyncio.get_event_loop()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown the thread pool executor when the application stops."""
+    executor.shutdown(wait=True)
