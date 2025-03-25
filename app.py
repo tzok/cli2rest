@@ -88,7 +88,9 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
 
 
 @app.post("/run-command", response_model=CommandResponse)
-async def run_command(request: CommandRequest, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+async def run_command(
+    request: CommandRequest, background_tasks: BackgroundTasks
+) -> Dict[str, Any]:
     """
     Run a CLI tool with the provided arguments and files.
 
@@ -98,16 +100,12 @@ async def run_command(request: CommandRequest, background_tasks: BackgroundTasks
     3. Write file contents to the appropriate locations
     4. Run the CLI tool with the provided arguments
     5. Return the command output
-    
+
     Requests are processed in parallel up to the number of CPU cores.
     """
     # Submit the task to the thread pool and wait for the result
-    result = await app.state.loop.run_in_executor(
-        executor, 
-        execute_command, 
-        request
-    )
-    
+    result = await app.state.loop.run_in_executor(executor, execute_command, request)
+
     return result
 
 
@@ -117,7 +115,7 @@ async def health():
     return {
         "status": "healthy",
         "workers": MAX_WORKERS,
-        "active_threads": len(executor._threads)
+        "active_threads": len(executor._threads),
     }
 
 
@@ -125,6 +123,7 @@ async def health():
 async def startup_event():
     """Store the event loop on startup for use with the executor."""
     import asyncio
+
     app.state.loop = asyncio.get_event_loop()
 
 
