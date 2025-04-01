@@ -27,7 +27,7 @@ class CommandRequest(BaseModel):
 
     cli_tool: str
     arguments: List[str] = []
-    files: List[FileData] = []
+    input_files: List[FileData] = []
     working_directory: Optional[str] = None
     output_files: List[str] = []  # List of relative paths to return after execution
 
@@ -49,7 +49,7 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create files with their directory structure
-        for file_data in request.files:
+        for file_data in request.input_files:
             # Get the full path for the file
             file_path = os.path.join(temp_dir, file_data.relative_path)
 
