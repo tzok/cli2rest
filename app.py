@@ -79,7 +79,9 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
                 try:
                     with open(full_path, "r") as f:
                         content = f.read()
-                        output_files.append(FileData(relative_path=file_path, content=content))
+                        output_files.append(
+                            FileData(relative_path=file_path, content=content)
+                        )
                 except FileNotFoundError:
                     # File doesn't exist, log it but don't include in results
                     print(f"Requested output file not found: {file_path}")
