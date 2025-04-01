@@ -39,7 +39,7 @@ class CommandResponse(BaseModel):
     stderr: str
     exit_code: int
     command: str
-    output_files: Dict[str, Optional[str]] = {}  # Map of file paths to their contents
+    output_files: List[FileData] = []  # List of output files with their contents
 
 
 def execute_command(request: CommandRequest) -> Dict[str, Any]:
@@ -73,18 +73,18 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
             )
 
             # Collect requested output files
-            output_files = {}
+            output_files = []
             for file_path in request.output_files:
                 full_path = os.path.join(temp_dir, file_path)
                 try:
                     with open(full_path, "r") as f:
-                        output_files[file_path] = f.read()
+                        content = f.read()
+                        output_files.append(FileData(relative_path=file_path, content=content))
                 except FileNotFoundError:
-                    # File doesn't exist, return None for its content
-                    output_files[file_path] = None
+                    # File doesn't exist, log it but don't include in results
+                    print(f"Requested output file not found: {file_path}")
                 except Exception as e:
-                    # Other errors (permission, etc.), return None and log error
-                    output_files[file_path] = None
+                    # Other errors (permission, etc.), log error
                     print(f"Error reading output file {file_path}: {str(e)}")
 
             # Prepare the response
