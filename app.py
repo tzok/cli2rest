@@ -71,7 +71,7 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
             process = subprocess.run(
                 command, cwd=working_dir, capture_output=True, text=True, check=False
             )
-            
+
             # Collect requested output files
             output_files = {}
             for file_path in request.output_files:
