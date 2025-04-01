@@ -29,15 +29,17 @@ class CommandRequest(BaseModel):
     arguments: List[str] = []
     files: List[FileData] = []
     working_directory: Optional[str] = None
+    output_files: List[str] = []  # List of relative paths to return after execution
 
 
 class CommandResponse(BaseModel):
-    """Model for command response with stdout, stderr and exit code."""
+    """Model for command response with stdout, stderr, exit code and output files."""
 
     stdout: str
     stderr: str
     exit_code: int
     command: str
+    output_files: Dict[str, Optional[str]] = {}  # Map of file paths to their contents
 
 
 def execute_command(request: CommandRequest) -> Dict[str, Any]:
@@ -69,6 +71,21 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
             process = subprocess.run(
                 command, cwd=working_dir, capture_output=True, text=True, check=False
             )
+            
+            # Collect requested output files
+            output_files = {}
+            for file_path in request.output_files:
+                full_path = os.path.join(temp_dir, file_path)
+                try:
+                    with open(full_path, "r") as f:
+                        output_files[file_path] = f.read()
+                except FileNotFoundError:
+                    # File doesn't exist, return None for its content
+                    output_files[file_path] = None
+                except Exception as e:
+                    # Other errors (permission, etc.), return None and log error
+                    output_files[file_path] = None
+                    print(f"Error reading output file {file_path}: {str(e)}")
 
             # Prepare the response
             return {
@@ -76,6 +93,7 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
                 "stderr": process.stderr,
                 "exit_code": process.returncode,
                 "command": " ".join(command),
+                "output_files": output_files,
             }
         except FileNotFoundError:
             raise HTTPException(
