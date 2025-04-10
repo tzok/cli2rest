@@ -38,22 +38,27 @@ async def execute_command(
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create files with their directory structure
+        print(f"Processing {len(input_files)} input files...")
         for upload_file in input_files:
             # Extract relative path from filename
             relative_path = upload_file.filename
             if not relative_path:
+                print(f"Skipping file with empty filename")
                 continue
 
             # Get the full path for the file
             file_path = os.path.join(temp_dir, relative_path)
+            print(f"Processing input file: {relative_path} -> {file_path}")
 
             # Create directory structure if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             # Write file content
             content = await upload_file.read()
+            content_size = len(content)
             with open(file_path, "wb") as f:
                 f.write(content)
+            print(f"Saved {content_size} bytes to {relative_path}")
 
         # Use the command as provided
         command = arguments
