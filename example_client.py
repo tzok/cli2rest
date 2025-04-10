@@ -40,6 +40,9 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     # Send request to API
     response = requests.post(API_URL, data=data, files=files)
+    # Note: This is correct - 'data' is the parameter name for form fields in requests
+    # and 'files' is the parameter for file uploads. These are requests library parameters,
+    # not the FastAPI endpoint parameter names.
 
     # Print response
     print(f"Status code: {response.status_code}")
