@@ -27,7 +27,6 @@ class CommandResponse(BaseModel):
 
 
 async def execute_command(
-    cli_tool: str,
     arguments: List[str],
     input_files: List[UploadFile],
     output_files: List[str],
@@ -55,8 +54,8 @@ async def execute_command(
             with open(file_path, "wb") as f:
                 f.write(content)
 
-        # Prepare the command
-        command = [cli_tool] + arguments
+        # Use the command as provided
+        command = arguments
 
         # Use the temp directory as working directory
         working_dir = temp_dir
@@ -94,7 +93,7 @@ async def execute_command(
             }
         except FileNotFoundError:
             raise HTTPException(
-                status_code=400, detail=f"CLI tool '{cli_tool}' not found"
+                status_code=400, detail=f"Command not found"
             )
         except Exception as e:
             raise HTTPException(
@@ -104,25 +103,23 @@ async def execute_command(
 
 @app.post("/run-command")
 async def run_command(
-    cli_tool: str = Form(...),
-    arguments: str = Form("[]"),
+    arguments: str = Form(...),
     output_files: str = Form("[]"),
     input_files: List[UploadFile] = File([]),
 ):
     """
-    Run a CLI tool with the provided arguments and files.
+    Run a command with the provided arguments and files.
 
     The API will:
     1. Create a temporary directory
     2. Save uploaded files to the appropriate locations
-    3. Run the CLI tool with the provided arguments
+    3. Run the command with the provided arguments
     4. Return the command output and requested output files
 
     Requests are processed in parallel up to the number of CPU cores.
 
     Form parameters:
-    - cli_tool: The CLI tool to run
-    - arguments: JSON string array of arguments to pass to the tool
+    - arguments: JSON string array representing the command and its arguments
     - output_files: JSON string array of relative paths to return after execution
     - input_files: Multipart file uploads with filenames as relative paths
     """
@@ -140,7 +137,6 @@ async def run_command(
 
         # Execute the command
         result = await execute_command(
-            cli_tool=cli_tool,
             arguments=arguments_list,
             input_files=input_files,
             output_files=output_files_list,

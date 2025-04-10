@@ -34,8 +34,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
     ]
 
     data = {
-        "cli_tool": "ls",
-        "arguments": json.dumps(["-la"]),
+        "arguments": json.dumps(["ls", "-la"]),
         "output_files": json.dumps([]),  # No output files requested in this example
     }
 

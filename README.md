@@ -58,8 +58,7 @@ The API will be available at http://localhost:8000.
 
 **Form Fields:**
 
-- `cli_tool` (string): The CLI tool to run
-- `arguments` (string): JSON array of arguments to pass to the tool
+- `arguments` (string): JSON array representing the command and its arguments
 - `output_files` (string): JSON array of relative paths to return after execution
 - `input_files` (files): Multiple file uploads with filenames as relative paths
 
@@ -98,8 +97,7 @@ files = [
 
 # Prepare form data
 data = {
-    'cli_tool': 'ls',
-    'arguments': json.dumps(['-la']),
+    'arguments': json.dumps(['ls', '-la']),
     'output_files': json.dumps(['test/output.txt'])
 }
 
