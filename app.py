@@ -108,9 +108,14 @@ async def execute_command(
 @app.post("/run-command")
 async def run_command(
     arguments: List[str] = Form(...),
-    input_files: List[UploadFile] = File([]),
+    input_files: List[UploadFile] = File(None),
     output_files: List[str] = Form([]),
 ):
+    # Handle both single file and list of files
+    if input_files is None:
+        input_files = []
+    elif not isinstance(input_files, list):
+        input_files = [input_files]
     """
     Run a command with the provided arguments and files.
 
