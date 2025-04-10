@@ -1,3 +1,4 @@
+import base64
 import json
 import multiprocessing
 import os
@@ -102,8 +103,8 @@ async def execute_command(
 @app.post("/run-command")
 async def run_command(
     arguments: str = Form(...),
-    output_files: str = Form("[]"),
     input_files: List[UploadFile] = File([]),
+    output_files: str = Form("[]"),
 ):
     """
     Run a command with the provided arguments and files.
@@ -151,8 +152,6 @@ async def run_command(
 
         # Add output files to response
         for file_data in result["output_files"]:
-            import base64
-
             encoded_content = base64.b64encode(file_data["content"]).decode("utf-8")
             response_data["output_files"].append(
                 {

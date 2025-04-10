@@ -59,8 +59,8 @@ The API will be available at http://localhost:8000.
 **Form Fields:**
 
 - `arguments` (string): JSON array representing the command and its arguments
-- `output_files` (string): JSON array of relative paths to return after execution
 - `input_files` (files): Multiple file uploads with filenames as relative paths
+- `output_files` (string): JSON array of relative paths to return after execution
 
 **Response:**
 

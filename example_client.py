@@ -1,8 +1,9 @@
-import requests
+import base64
 import json
 import os
-import base64
 import tempfile
+
+import requests
 
 # API endpoint
 API_URL = "http://localhost:8000/run-command"
