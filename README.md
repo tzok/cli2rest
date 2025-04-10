@@ -54,22 +54,15 @@ The API will be available at http://localhost:8000.
 
 **Endpoint:** `POST /run-command`
 
-**Request Body:**
+**Request Format:** `multipart/form-data`
 
-```json
-{
-  "cli_tool": "string", // The CLI tool to run
-  "arguments": ["string"], // List of arguments to pass to the tool
-  "files": [
-    // Files to create before running the command
-    {
-      "relative_path": "string", // Path relative to the working directory
-      "content": "string" // Content of the file
-    }
-  ],
-  "working_directory": "string" // Optional: subdirectory to run the command from
-}
-```
+**Form Fields:**
+
+- `cli_tool` (string): The CLI tool to run
+- `arguments` (string): JSON array of arguments to pass to the tool
+- `working_directory` (string, optional): Subdirectory to run the command from
+- `output_files` (string): JSON array of relative paths to return after execution
+- `input_files` (files): Multiple file uploads with filenames as relative paths
 
 **Response:**
 
@@ -78,7 +71,13 @@ The API will be available at http://localhost:8000.
   "stdout": "string", // Standard output from the command
   "stderr": "string", // Standard error from the command
   "exit_code": 0, // Exit code from the command
-  "command": "string" // The command that was executed
+  "command": "string", // The command that was executed
+  "output_files": [
+    {
+      "relative_path": "string", // Path relative to the working directory
+      "content_base64": "string" // Base64-encoded content of the file
+    }
+  ]
 }
 ```
 
@@ -86,27 +85,40 @@ The API will be available at http://localhost:8000.
 
 ```python
 import requests
+import json
+import os
+import base64
 
 API_URL = "http://localhost:8000/run-command"
 
-payload = {
-    "cli_tool": "ls",
-    "arguments": ["-la"],
-    "files": [
-        {
-            "relative_path": "test/example.txt",
-            "content": "This is an example file content."
-        },
-        {
-            "relative_path": "test/nested/another.txt",
-            "content": "This is another file in a nested directory."
-        }
-    ],
-    "working_directory": "test"
+# Prepare files to upload
+files = [
+    ('input_files', ('test/example.txt', open('example.txt', 'rb'), 'text/plain')),
+    ('input_files', ('test/nested/another.txt', open('another.txt', 'rb'), 'text/plain'))
+]
+
+# Prepare form data
+data = {
+    'cli_tool': 'ls',
+    'arguments': json.dumps(['-la']),
+    'working_directory': 'test',
+    'output_files': json.dumps(['test/output.txt'])
 }
 
-response = requests.post(API_URL, json=payload)
-print(response.json())
+# Send request to API
+response = requests.post(API_URL, data=data, files=files)
+
+# Process response
+result = response.json()
+print(f"Command: {result['command']}")
+print(f"Exit code: {result['exit_code']}")
+print(f"Stdout: {result['stdout']}")
+
+# Process output files
+for file_data in result['output_files']:
+    file_path = file_data['relative_path']
+    content = base64.b64decode(file_data['content_base64']).decode('utf-8')
+    print(f"Output file {file_path}: {content}")
 ```
 
 ## Building Custom Images

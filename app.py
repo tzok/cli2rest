@@ -2,10 +2,12 @@ import os
 import subprocess
 import tempfile
 import multiprocessing
+import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, File, Form, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 app = FastAPI(title="CLI Tool Wrapper API")
@@ -22,49 +24,50 @@ class FileData(BaseModel):
     content: str
 
 
-class CommandRequest(BaseModel):
-    """Model for command request with CLI tool, arguments and files."""
-
-    cli_tool: str
-    arguments: List[str] = []
-    input_files: List[FileData] = []
-    working_directory: Optional[str] = None
-    output_files: List[str] = []  # List of relative paths to return after execution
-
-
 class CommandResponse(BaseModel):
-    """Model for command response with stdout, stderr, exit code and output files."""
+    """Model for command response with stdout, stderr, exit code."""
 
     stdout: str
     stderr: str
     exit_code: int
     command: str
-    output_files: List[FileData] = []  # List of output files with their contents
 
 
-def execute_command(request: CommandRequest) -> Dict[str, Any]:
+async def execute_command(
+    cli_tool: str,
+    arguments: List[str],
+    input_files: List[UploadFile],
+    working_directory: Optional[str],
+    output_files: List[str]
+) -> Dict[str, Any]:
     """
     Execute a CLI command in a temporary directory with the provided files.
     This function is designed to be run in a separate thread.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create files with their directory structure
-        for file_data in request.input_files:
+        for upload_file in input_files:
+            # Extract relative path from filename
+            relative_path = upload_file.filename
+            if not relative_path:
+                continue
+                
             # Get the full path for the file
-            file_path = os.path.join(temp_dir, file_data.relative_path)
+            file_path = os.path.join(temp_dir, relative_path)
 
             # Create directory structure if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             # Write file content
-            with open(file_path, "w") as f:
-                f.write(file_data.content)
+            content = await upload_file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
 
         # Prepare the command
-        command = [request.cli_tool] + request.arguments
+        command = [cli_tool] + arguments
 
         # Set the working directory
-        working_dir = os.path.join(temp_dir, request.working_directory or "")
+        working_dir = os.path.join(temp_dir, working_directory or "")
 
         try:
             # Run the command
@@ -73,15 +76,16 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
             )
 
             # Collect requested output files
-            output_files = []
-            for file_path in request.output_files:
+            output_file_data = []
+            for file_path in output_files:
                 full_path = os.path.join(temp_dir, file_path)
                 try:
-                    with open(full_path, "r") as f:
+                    with open(full_path, "rb") as f:
                         content = f.read()
-                        output_files.append(
-                            FileData(relative_path=file_path, content=content)
-                        )
+                        output_file_data.append({
+                            "relative_path": file_path,
+                            "content": content
+                        })
                 except FileNotFoundError:
                     # File doesn't exist, log it but don't include in results
                     print(f"Requested output file not found: {file_path}")
@@ -95,11 +99,11 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
                 "stderr": process.stderr,
                 "exit_code": process.returncode,
                 "command": " ".join(command),
-                "output_files": output_files,
+                "output_files": output_file_data,
             }
         except FileNotFoundError:
             raise HTTPException(
-                status_code=400, detail=f"CLI tool '{request.cli_tool}' not found"
+                status_code=400, detail=f"CLI tool '{cli_tool}' not found"
             )
         except Exception as e:
             raise HTTPException(
@@ -107,26 +111,71 @@ def execute_command(request: CommandRequest) -> Dict[str, Any]:
             )
 
 
-@app.post("/run-command", response_model=CommandResponse)
+@app.post("/run-command")
 async def run_command(
-    request: CommandRequest, background_tasks: BackgroundTasks
-) -> Dict[str, Any]:
+    cli_tool: str = Form(...),
+    arguments: str = Form("[]"),
+    working_directory: Optional[str] = Form(None),
+    output_files: str = Form("[]"),
+    input_files: List[UploadFile] = File([])
+):
     """
     Run a CLI tool with the provided arguments and files.
 
     The API will:
     1. Create a temporary directory
-    2. Recreate the directory structure based on relative paths
-    3. Write file contents to the appropriate locations
-    4. Run the CLI tool with the provided arguments
-    5. Return the command output
+    2. Save uploaded files to the appropriate locations
+    3. Run the CLI tool with the provided arguments
+    4. Return the command output and requested output files
 
     Requests are processed in parallel up to the number of CPU cores.
+    
+    Form parameters:
+    - cli_tool: The CLI tool to run
+    - arguments: JSON string array of arguments to pass to the tool
+    - working_directory: Optional subdirectory to run the command from
+    - output_files: JSON string array of relative paths to return after execution
+    - input_files: Multipart file uploads with filenames as relative paths
     """
-    # Submit the task to the thread pool and wait for the result
-    result = await app.state.loop.run_in_executor(executor, execute_command, request)
-
-    return result
+    try:
+        # Parse JSON strings to Python lists
+        arguments_list = json.loads(arguments)
+        output_files_list = json.loads(output_files)
+        
+        if not isinstance(arguments_list, list) or not isinstance(output_files_list, list):
+            raise HTTPException(status_code=400, detail="Arguments and output_files must be JSON arrays")
+            
+        # Execute the command
+        result = await execute_command(
+            cli_tool=cli_tool,
+            arguments=arguments_list,
+            input_files=input_files,
+            working_directory=working_directory,
+            output_files=output_files_list
+        )
+        
+        # Prepare response with base64 encoded output files
+        response_data = {
+            "stdout": result["stdout"],
+            "stderr": result["stderr"],
+            "exit_code": result["exit_code"],
+            "command": result["command"],
+            "output_files": []
+        }
+        
+        # Add output files to response
+        for file_data in result["output_files"]:
+            import base64
+            encoded_content = base64.b64encode(file_data["content"]).decode('utf-8')
+            response_data["output_files"].append({
+                "relative_path": file_data["relative_path"],
+                "content_base64": encoded_content
+            })
+            
+        return JSONResponse(content=response_data)
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in arguments or output_files")
 
 
 @app.get("/health")
