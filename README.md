@@ -60,7 +60,6 @@ The API will be available at http://localhost:8000.
 
 - `cli_tool` (string): The CLI tool to run
 - `arguments` (string): JSON array of arguments to pass to the tool
-- `working_directory` (string, optional): Subdirectory to run the command from
 - `output_files` (string): JSON array of relative paths to return after execution
 - `input_files` (files): Multiple file uploads with filenames as relative paths
 
@@ -101,7 +100,6 @@ files = [
 data = {
     'cli_tool': 'ls',
     'arguments': json.dumps(['-la']),
-    'working_directory': 'test',
     'output_files': json.dumps(['test/output.txt'])
 }
 

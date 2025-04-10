@@ -30,7 +30,6 @@ async def execute_command(
     cli_tool: str,
     arguments: List[str],
     input_files: List[UploadFile],
-    working_directory: Optional[str],
     output_files: List[str],
 ) -> Dict[str, Any]:
     """
@@ -59,8 +58,8 @@ async def execute_command(
         # Prepare the command
         command = [cli_tool] + arguments
 
-        # Set the working directory
-        working_dir = os.path.join(temp_dir, working_directory or "")
+        # Use the temp directory as working directory
+        working_dir = temp_dir
 
         try:
             # Run the command
@@ -107,7 +106,6 @@ async def execute_command(
 async def run_command(
     cli_tool: str = Form(...),
     arguments: str = Form("[]"),
-    working_directory: Optional[str] = Form(None),
     output_files: str = Form("[]"),
     input_files: List[UploadFile] = File([]),
 ):
@@ -125,7 +123,6 @@ async def run_command(
     Form parameters:
     - cli_tool: The CLI tool to run
     - arguments: JSON string array of arguments to pass to the tool
-    - working_directory: Optional subdirectory to run the command from
     - output_files: JSON string array of relative paths to return after execution
     - input_files: Multipart file uploads with filenames as relative paths
     """
@@ -146,7 +143,6 @@ async def run_command(
             cli_tool=cli_tool,
             arguments=arguments_list,
             input_files=input_files,
-            working_directory=working_directory,
             output_files=output_files_list,
         )
 
