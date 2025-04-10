@@ -92,9 +92,7 @@ async def execute_command(
                 "output_files": output_file_data,
             }
         except FileNotFoundError:
-            raise HTTPException(
-                status_code=400, detail=f"Command not found"
-            )
+            raise HTTPException(status_code=400, detail=f"Command not found")
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Error running command: {str(e)}"
