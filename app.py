@@ -17,13 +17,6 @@ MAX_WORKERS = multiprocessing.cpu_count()
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
-class FileData(BaseModel):
-    """Model for file data with relative path and content."""
-
-    relative_path: str
-    content: str
-
-
 class CommandResponse(BaseModel):
     """Model for command response with stdout, stderr, exit code."""
 
