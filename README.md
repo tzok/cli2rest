@@ -58,9 +58,9 @@ The API will be available at http://localhost:8000.
 
 **Form Fields:**
 
-- `arguments` (string): JSON array representing the command and its arguments
+- `arguments` (list): List of strings representing the command and its arguments
 - `input_files` (files): Multiple file uploads with filenames as relative paths
-- `output_files` (string): JSON array of relative paths to return after execution
+- `output_files` (list): List of relative paths to return after execution
 
 **Response:**
 
@@ -97,8 +97,8 @@ files = [
 
 # Prepare form data
 data = {
-    'arguments': json.dumps(['ls', '-la']),
-    'output_files': json.dumps(['test/output.txt'])
+    'arguments': ['ls', '-la'],
+    'output_files': ['test/output.txt']
 }
 
 # Send request to API

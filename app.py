@@ -102,9 +102,9 @@ async def execute_command(
 
 @app.post("/run-command")
 async def run_command(
-    arguments: str = Form(...),
+    arguments: List[str] = Form(...),
     input_files: List[UploadFile] = File([]),
-    output_files: str = Form("[]"),
+    output_files: List[str] = Form([]),
 ):
     """
     Run a command with the provided arguments and files.
@@ -118,27 +118,16 @@ async def run_command(
     Requests are processed in parallel up to the number of CPU cores.
 
     Form parameters:
-    - arguments: JSON string array representing the command and its arguments
-    - output_files: JSON string array of relative paths to return after execution
+    - arguments: List of strings representing the command and its arguments
+    - output_files: List of relative paths to return after execution
     - input_files: Multipart file uploads with filenames as relative paths
     """
     try:
-        # Parse JSON strings to Python lists
-        arguments_list = json.loads(arguments)
-        output_files_list = json.loads(output_files)
-
-        if not isinstance(arguments_list, list) or not isinstance(
-            output_files_list, list
-        ):
-            raise HTTPException(
-                status_code=400, detail="Arguments and output_files must be JSON arrays"
-            )
-
         # Execute the command
         result = await execute_command(
-            arguments=arguments_list,
+            arguments=arguments,
             input_files=input_files,
-            output_files=output_files_list,
+            output_files=output_files,
         )
 
         # Prepare response with base64 encoded output files
@@ -162,9 +151,9 @@ async def run_command(
 
         return JSONResponse(content=response_data)
 
-    except json.JSONDecodeError:
+    except Exception as e:
         raise HTTPException(
-            status_code=400, detail="Invalid JSON in arguments or output_files"
+            status_code=500, detail=f"Error processing request: {str(e)}"
         )
 
 

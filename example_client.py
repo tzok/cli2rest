@@ -35,8 +35,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
     ]
 
     data = {
-        "arguments": json.dumps(["ls", "-la"]),
-        "output_files": json.dumps([]),  # No output files requested in this example
+        "arguments": ["ls", "-la"],
+        "output_files": [],  # No output files requested in this example
     }
 
     # Send request to API
