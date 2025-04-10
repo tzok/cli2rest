@@ -38,7 +38,7 @@ async def execute_command(
     arguments: List[str],
     input_files: List[UploadFile],
     working_directory: Optional[str],
-    output_files: List[str]
+    output_files: List[str],
 ) -> Dict[str, Any]:
     """
     Execute a CLI command in a temporary directory with the provided files.
@@ -51,7 +51,7 @@ async def execute_command(
             relative_path = upload_file.filename
             if not relative_path:
                 continue
-                
+
             # Get the full path for the file
             file_path = os.path.join(temp_dir, relative_path)
 
@@ -82,10 +82,9 @@ async def execute_command(
                 try:
                     with open(full_path, "rb") as f:
                         content = f.read()
-                        output_file_data.append({
-                            "relative_path": file_path,
-                            "content": content
-                        })
+                        output_file_data.append(
+                            {"relative_path": file_path, "content": content}
+                        )
                 except FileNotFoundError:
                     # File doesn't exist, log it but don't include in results
                     print(f"Requested output file not found: {file_path}")
@@ -117,7 +116,7 @@ async def run_command(
     arguments: str = Form("[]"),
     working_directory: Optional[str] = Form(None),
     output_files: str = Form("[]"),
-    input_files: List[UploadFile] = File([])
+    input_files: List[UploadFile] = File([]),
 ):
     """
     Run a CLI tool with the provided arguments and files.
@@ -129,7 +128,7 @@ async def run_command(
     4. Return the command output and requested output files
 
     Requests are processed in parallel up to the number of CPU cores.
-    
+
     Form parameters:
     - cli_tool: The CLI tool to run
     - arguments: JSON string array of arguments to pass to the tool
@@ -141,41 +140,50 @@ async def run_command(
         # Parse JSON strings to Python lists
         arguments_list = json.loads(arguments)
         output_files_list = json.loads(output_files)
-        
-        if not isinstance(arguments_list, list) or not isinstance(output_files_list, list):
-            raise HTTPException(status_code=400, detail="Arguments and output_files must be JSON arrays")
-            
+
+        if not isinstance(arguments_list, list) or not isinstance(
+            output_files_list, list
+        ):
+            raise HTTPException(
+                status_code=400, detail="Arguments and output_files must be JSON arrays"
+            )
+
         # Execute the command
         result = await execute_command(
             cli_tool=cli_tool,
             arguments=arguments_list,
             input_files=input_files,
             working_directory=working_directory,
-            output_files=output_files_list
+            output_files=output_files_list,
         )
-        
+
         # Prepare response with base64 encoded output files
         response_data = {
             "stdout": result["stdout"],
             "stderr": result["stderr"],
             "exit_code": result["exit_code"],
             "command": result["command"],
-            "output_files": []
+            "output_files": [],
         }
-        
+
         # Add output files to response
         for file_data in result["output_files"]:
             import base64
-            encoded_content = base64.b64encode(file_data["content"]).decode('utf-8')
-            response_data["output_files"].append({
-                "relative_path": file_data["relative_path"],
-                "content_base64": encoded_content
-            })
-            
+
+            encoded_content = base64.b64encode(file_data["content"]).decode("utf-8")
+            response_data["output_files"].append(
+                {
+                    "relative_path": file_data["relative_path"],
+                    "content_base64": encoded_content,
+                }
+            )
+
         return JSONResponse(content=response_data)
-        
+
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON in arguments or output_files")
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON in arguments or output_files"
+        )
 
 
 @app.get("/health")
