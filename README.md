@@ -151,6 +151,15 @@ docker build -t custom-cli2rest .
 docker run -p 8000:8000 custom-cli2rest
 ```
 
+**Note:** The base image includes the `requests` library. This allows for convenient healthchecks in Docker Compose, for example:
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/health').raise_for_status()\" || exit 1"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+```
+
 ## Security Considerations
 
 - This API allows execution of arbitrary commands, so it should be deployed with appropriate security measures.
