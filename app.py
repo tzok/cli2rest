@@ -187,5 +187,3 @@ async def health():
         "workers": MAX_WORKERS,
         "active_threads": len(executor._threads),
     }
-
-
