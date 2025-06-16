@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import multiprocessing
@@ -5,17 +6,28 @@ import os
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-app = FastAPI(title="CLI Tool Wrapper API")
-
 # Create a thread pool with the number of CPU cores
 MAX_WORKERS = multiprocessing.cpu_count()
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    app.state.loop = asyncio.get_event_loop()
+    yield
+    # Shutdown
+    executor.shutdown(wait=True)
+
+
+app = FastAPI(title="CLI Tool Wrapper API", lifespan=lifespan)
 
 
 class CommandResponse(BaseModel):
@@ -177,15 +189,3 @@ async def health():
     }
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Store the event loop on startup for use with the executor."""
-    import asyncio
-
-    app.state.loop = asyncio.get_event_loop()
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Shutdown the thread pool executor when the application stops."""
-    executor.shutdown(wait=True)
