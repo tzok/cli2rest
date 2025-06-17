@@ -39,14 +39,14 @@ class CommandResponse(BaseModel):
     command: str
 
 
-async def execute_command(
+def execute_command_sync(
     arguments: List[str],
     input_files: List[UploadFile],
     output_files: List[str],
 ) -> Dict[str, Any]:
     """
     Execute a CLI command in a temporary directory with the provided files.
-    This function is designed to be run in a separate thread.
+    This function runs synchronously and is designed to be run in a separate thread.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create files with their directory structure
@@ -65,8 +65,8 @@ async def execute_command(
             # Create directory structure if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-            # Write file content
-            content = await upload_file.read()
+            # Write file content (note: upload_file.file is already read at this point)
+            content = upload_file.file.read()
             content_size = len(content)
             with open(file_path, "wb") as f:
                 f.write(content)
@@ -123,11 +123,6 @@ async def run_command(
     input_files: List[UploadFile] = File(None),
     output_files: List[str] = Form([]),
 ):
-    # Handle both single file and list of files
-    if input_files is None:
-        input_files = []
-    elif not isinstance(input_files, list):
-        input_files = [input_files]
     """
     Run a command with the provided arguments and files.
 
@@ -144,12 +139,33 @@ async def run_command(
     - output_files: List of relative paths to return after execution
     - input_files: Multipart file uploads with filenames as relative paths
     """
+    # Handle both single file and list of files
+    if input_files is None:
+        input_files = []
+    elif not isinstance(input_files, list):
+        input_files = [input_files]
+
     try:
-        # Execute the command
-        result = await execute_command(
-            arguments=arguments,
-            input_files=input_files,
-            output_files=output_files,
+        # Read file contents into memory first (async operation)
+        for upload_file in input_files:
+            if upload_file.filename:
+                content = await upload_file.read()
+                # Reset file pointer and store content
+                upload_file.file.seek(0)
+                upload_file.file.truncate()
+                upload_file.file.write(content)
+                upload_file.file.seek(0)
+
+        # Get the current event loop
+        loop = asyncio.get_event_loop()
+        
+        # Execute the command in a thread pool
+        result = await loop.run_in_executor(
+            executor,
+            execute_command_sync,
+            arguments,
+            input_files,
+            output_files,
         )
 
         # Prepare response with base64 encoded output files
