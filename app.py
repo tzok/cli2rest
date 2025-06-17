@@ -158,7 +158,7 @@ async def run_command(
 
         # Get the current event loop
         loop = asyncio.get_event_loop()
-        
+
         # Execute the command in a thread pool
         result = await loop.run_in_executor(
             executor,
