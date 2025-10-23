@@ -1,20 +1,26 @@
-# Use Python slim image for a smaller footprint
-FROM python:3.14.0-slim
+FROM python:3.13 AS builder
 
-# Set working directory
-WORKDIR /app
-
-# Copy requirements file
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m venv /opt/venv \
+ && . /opt/venv/bin/activate \
+ && pip install --upgrade pip \
+ && pip install -r requirements.txt
 
-# Copy application code
+#######################################
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV="/opt/venv"
+
+WORKDIR /app
 COPY app.py .
 
-# Expose port for the FastAPI application
 EXPOSE 8000
 
-# Command to run the application
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
