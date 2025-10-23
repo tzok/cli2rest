@@ -1,4 +1,4 @@
-FROM python:3.13 AS builder
+FROM python:3 AS builder
 
 COPY requirements.txt .
 
@@ -9,7 +9,7 @@ RUN python -m venv /opt/venv \
 
 #######################################
 
-FROM python:3.13-slim
+FROM python:3-slim
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 
