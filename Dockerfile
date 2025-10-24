@@ -24,3 +24,5 @@ COPY app.py .
 EXPOSE 8000
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+HEALTHCHECK --start-period=30s --start-interval=1s CMD python -c "import requests; requests.get('http://localhost:8000/health').raise_for_status()"
