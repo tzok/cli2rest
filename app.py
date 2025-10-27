@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import multiprocessing
 import os
 import subprocess
@@ -12,6 +13,15 @@ from typing import Any, Dict, List
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/health") == -1
+
+
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
 
 # Create a thread pool with the number of CPU cores
 MAX_WORKERS = multiprocessing.cpu_count()
