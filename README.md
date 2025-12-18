@@ -74,9 +74,13 @@ The response is a `multipart/form-data` stream. The first part is a JSON object 
   "stdout": "string",
   "stderr": "string",
   "command": ["list", "of", "args"],
+  "missing_files": [],
   "execution_stats": {
+    "start_time": "2025-12-18T12:00:00+00:00",
+    "end_time": "2025-12-18T12:00:00.123000+00:00",
     "duration_seconds": 0.123,
-    "max_rss_kb": 4567
+    "max_rss_kb": 4567,
+    "cpu_user_seconds": 0.05
   }
 }
 ```
