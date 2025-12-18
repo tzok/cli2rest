@@ -1,9 +1,9 @@
 import json
 import os
 import tempfile
+from email.message import EmailMessage
 
 import requests
-from requests_toolbelt.multipart import decoder
 
 # API endpoint
 API_URL = "http://localhost:8000/run-command"
@@ -49,27 +49,29 @@ with tempfile.TemporaryDirectory() as temp_dir:
     print(f"Status code: {response.status_code}")
 
     if response.status_code == 200:
-        # Decode the multipart response
-        multipart_data = decoder.MultipartDecoder.from_response(response)
+        # Use the email library to parse the multipart response
+        msg = EmailMessage()
+        msg["Content-Type"] = response.headers.get("Content-Type")
+        msg.set_payload(response.content)
 
-        for part in multipart_data.parts:
-            # Check the headers of each part
-            disposition = part.headers.get(b"Content-Disposition", b"").decode()
+        for part in msg.iter_parts():
+            disposition = part.get("Content-Disposition", "")
 
             if 'name="metadata"' in disposition:
-                metadata = json.loads(part.text)
+                metadata = json.loads(part.get_content())
                 print("Metadata received:")
                 print(json.dumps(metadata, indent=2))
 
             elif "filename=" in disposition:
-                # Extract filename from header
-                filename = disposition.split("filename=")[-1].strip('"')
-                print(f"Received file: {filename} ({len(part.content)} bytes)")
+                # Extract filename
+                filename = part.get_filename()
+                content = part.get_payload(decode=True)
+                print(f"Received file: {filename} ({len(content)} bytes)")
 
                 # Save the file to the current directory or a specific path
                 output_path = os.path.join(temp_dir, f"output_{filename}")
                 with open(output_path, "wb") as f:
-                    f.write(part.content)
+                    f.write(content)
                 print(f"Saved to: {output_path}")
     else:
         print(f"Error: {response.text}")
