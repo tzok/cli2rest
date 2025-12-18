@@ -1,9 +1,9 @@
-import base64
 import json
 import os
 import tempfile
 
 import requests
+from requests_toolbelt.multipart import decoder
 
 # API endpoint
 API_URL = "http://localhost:8000/run-command"
@@ -47,13 +47,29 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     # Print response
     print(f"Status code: {response.status_code}")
-    response_data = response.json()
-    print(json.dumps(response_data, indent=2))
 
-    # Process any output files if present
-    if "output_files" in response_data and response_data["output_files"]:
-        print("\nOutput files:")
-        for file_data in response_data["output_files"]:
-            print(f"File: {file_data['relative_path']}")
-            content = base64.b64decode(file_data["content_base64"]).decode("utf-8")
-            print(f"Content: {content[:100]}{'...' if len(content) > 100 else ''}")
+    if response.status_code == 200:
+        # Decode the multipart response
+        multipart_data = decoder.MultipartDecoder.from_response(response)
+
+        for part in multipart_data.parts:
+            # Check the headers of each part
+            disposition = part.headers.get(b"Content-Disposition", b"").decode()
+
+            if 'name="metadata"' in disposition:
+                metadata = json.loads(part.text)
+                print("Metadata received:")
+                print(json.dumps(metadata, indent=2))
+
+            elif "filename=" in disposition:
+                # Extract filename from header
+                filename = disposition.split("filename=")[-1].strip('"')
+                print(f"Received file: {filename} ({len(part.content)} bytes)")
+
+                # Save the file to the current directory or a specific path
+                output_path = os.path.join(temp_dir, f"output_{filename}")
+                with open(output_path, "wb") as f:
+                    f.write(part.content)
+                print(f"Saved to: {output_path}")
+    else:
+        print(f"Error: {response.text}")
