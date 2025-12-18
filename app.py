@@ -132,7 +132,7 @@ def execute_command_sync(
 
         # Collect requested output files
         output_file_data: List[Dict[str, Any]] = []
-        missing_files = []
+        missing_files: List[str] = []
         for file_path in output_files:
             full_path = os.path.join(temp_dir, file_path)
             try:
@@ -193,11 +193,7 @@ async def run_command(
     - input_files: Multipart file uploads with filenames as relative paths
     - timeout: Optional timeout in seconds for the command execution
     """
-    # Handle both single file and list of files
-    if input_files is None:
-        input_files = []
-    elif not isinstance(input_files, list):
-        input_files = [input_files]
+    assert isinstance(arguments, list), "Arguments must be a list of strings"
 
     try:
         # Read file contents into memory first (async operation)
