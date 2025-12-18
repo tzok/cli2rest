@@ -1,7 +1,8 @@
 import json
 import os
 import tempfile
-from email.message import EmailMessage
+from email import message_from_bytes
+from typing import Dict, List
 
 import requests
 
@@ -34,7 +35,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
         ),
     ]
 
-    data = {
+    data: Dict[str, List[str]] = {
         "arguments": ["ls", "-la"],
         "output_files": [],  # No output files requested in this example
     }
@@ -50,15 +51,17 @@ with tempfile.TemporaryDirectory() as temp_dir:
 
     if response.status_code == 200:
         # Use the email library to parse the multipart response
-        msg = EmailMessage()
-        msg["Content-Type"] = response.headers.get("Content-Type")
-        msg.set_payload(response.content)
+        # We prepend the Content-Type header so message_from_bytes can identify the boundary
+        raw_message = f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode() + response.content
+        msg = message_from_bytes(raw_message)
 
-        for part in msg.iter_parts():
+        for part in msg.walk():
+            if part.get_content_maintype() == "multipart":
+                continue
             disposition = part.get("Content-Disposition", "")
 
             if 'name="metadata"' in disposition:
-                metadata = json.loads(part.get_content())
+                metadata = json.loads(part.get_payload(decode=True))
                 print("Metadata received:")
                 print(json.dumps(metadata, indent=2))
 
@@ -71,7 +74,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 # Save the file to the current directory or a specific path
                 output_path = os.path.join(temp_dir, f"output_{filename}")
                 with open(output_path, "wb") as f:
-                    f.write(content)
+                    f.write(content)  # type: ignore
                 print(f"Saved to: {output_path}")
     else:
         print(f"Error: {response.text}")
