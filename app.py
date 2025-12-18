@@ -42,7 +42,7 @@ app = FastAPI(title="CLI Tool Wrapper API", lifespan=lifespan)
 
 
 def create_multipart_generator(
-    metadata: Dict[str, Any], output_files: List[Dict[str, Any]]
+    metadata: Dict[str, Any], output_files: List[Dict[str, str]], temp_dir: str
 ):
     boundary = "frame_boundary"
 
@@ -54,30 +54,50 @@ def create_multipart_generator(
     yield b"\r\n"
 
     # 2. Send the Files
-    for file_data in output_files:
-        filename = file_data["relative_path"]
-        binary_content = file_data["content"]
+    for file_info in output_files:
+        rel_path = file_info["relative_path"]
+        abs_path = file_info["absolute_path"]
         yield f"--{boundary}\r\n".encode()
         yield b"Content-Type: application/octet-stream\r\n"
-        yield f'Content-Disposition: attachment; filename="{filename}"\r\n\r\n'.encode()
-        yield binary_content
+        yield f'Content-Disposition: attachment; filename="{rel_path}"\r\n\r\n'.encode()
+
+        with open(abs_path, "rb") as f:
+            while chunk := f.read(65536):  # 64KB chunks
+                yield chunk
         yield b"\r\n"
 
     # 3. Closing boundary
     yield f"--{boundary}--\r\n".encode()
 
 
+class CleanupStreamingResponse(StreamingResponse):
+    """StreamingResponse that cleans up a directory after completion."""
+
+    def __init__(self, *args, cleanup_dir: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cleanup_dir = cleanup_dir
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            import shutil
+
+            shutil.rmtree(self.cleanup_dir, ignore_errors=True)
+
+
 def execute_command_sync(
     arguments: List[str],
     input_files: List[UploadFile],
     output_files: List[str],
+    temp_dir: str,
     timeout: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Execute a CLI command in a temporary directory with the provided files.
     This function runs synchronously and is designed to be run in a separate thread.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
+    if True:  # Removed context manager as temp_dir is managed by caller
         # Create files with their directory structure
         print(f"Processing {len(input_files)} input files...")
         for upload_file in input_files:
@@ -157,20 +177,16 @@ def execute_command_sync(
         usage = resource.getrusage(resource.RUSAGE_CHILDREN)
 
         # Collect requested output files
-        output_file_data: List[Dict[str, Any]] = []
+        output_file_data: List[Dict[str, str]] = []
         missing_files: List[str] = []
         for file_path in output_files:
             full_path = os.path.join(temp_dir, file_path)
-            try:
-                with open(full_path, "rb") as f:
-                    content = f.read()
-                    output_file_data.append(
-                        {"relative_path": file_path, "content": content}
-                    )
-            except FileNotFoundError:
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                output_file_data.append(
+                    {"relative_path": file_path, "absolute_path": full_path}
+                )
+            else:
                 missing_files.append(file_path)
-            except Exception as e:
-                print(f"Error reading output file {file_path}: {str(e)}")
 
         return {
             "status": status,
@@ -192,6 +208,7 @@ def execute_command_sync(
             "stderr": stderr,
             "command": " ".join(command),
             "output_files": output_file_data,
+            "temp_dir": temp_dir,
         }
 
 
@@ -235,6 +252,9 @@ async def run_command(
         # Get the current event loop
         loop = asyncio.get_event_loop()
 
+        # Create the temp directory here so we can manage its lifecycle
+        temp_dir = tempfile.mkdtemp()
+
         # Execute the command in a thread pool
         result = await loop.run_in_executor(
             executor,
@@ -242,16 +262,19 @@ async def run_command(
             arguments,
             input_files,
             output_files,
+            temp_dir,
             timeout,
         )
 
         # Separate metadata from binary files
         metadata = result.copy()
         output_files_data = metadata.pop("output_files")
+        temp_dir_path = metadata.pop("temp_dir")
 
-        return StreamingResponse(
-            create_multipart_generator(metadata, output_files_data),
+        return CleanupStreamingResponse(
+            create_multipart_generator(metadata, output_files_data, temp_dir_path),
             media_type="multipart/form-data; boundary=frame_boundary",
+            cleanup_dir=temp_dir_path,
         )
 
     except Exception as e:
