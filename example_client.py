@@ -36,8 +36,8 @@ with tempfile.TemporaryDirectory() as temp_dir:
     ]
 
     data: Dict[str, List[str]] = {
-        "arguments": ["ls", "-la"],
-        "output_files": [],  # No output files requested in this example
+        "arguments": ["bash", "-c", "ls -la | tee output.txt"],
+        "output_files": ["output.txt"],
     }
 
     # Send request to API
@@ -64,7 +64,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
             disposition = part.get("Content-Disposition", "")
 
             if 'name="metadata"' in disposition:
-                metadata = json.loads(part.get_payload(decode=True))
+                metadata = json.loads(part.get_payload(decode=True))  # type: ignore
                 print("Metadata received:")
                 print(json.dumps(metadata, indent=2))
 
@@ -75,7 +75,7 @@ with tempfile.TemporaryDirectory() as temp_dir:
                 print(f"Received file: {filename} ({len(content)} bytes)")
 
                 # Save the file to the current directory or a specific path
-                output_path = os.path.join(temp_dir, f"output_{filename}")
+                output_path = f"output_{filename}"
                 with open(output_path, "wb") as f:
                     f.write(content)  # type: ignore
                 print(f"Saved to: {output_path}")

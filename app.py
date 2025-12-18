@@ -22,7 +22,7 @@ class HealthCheckFilter(logging.Filter):
 
 
 # Configure logging
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.DEBUG),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -184,7 +184,7 @@ def execute_command_sync(
     if missing_files:
         status = "MISSING_OUTPUT_FILES"
 
-    result = {
+    result: Dict[str, Any] = {
         "status": status,
         "exit_code": exit_code,
         "missing_files": missing_files,
@@ -197,11 +197,12 @@ def execute_command_sync(
         },
         "stdout": stdout,
         "stderr": stderr,
-        "command": " ".join(command),
+        "command": command,
         "output_files": output_file_data,
     }
 
-    logger.info("Command execution finished with status: %s", status)
+    if status != "COMPLETED":
+        logger.warning("Command execution finished with status: %s", status)
     logger.debug("Execution result: %s", json.dumps(result, default=str))
     return result
 
