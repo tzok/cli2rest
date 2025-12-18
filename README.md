@@ -64,18 +64,24 @@ The API will be available at http://localhost:8000.
 
 **Response:**
 
+The response is a `multipart/form-data` stream. The first part is a JSON object containing execution metadata, followed by any requested output files as separate binary parts.
+
+**Metadata JSON structure:**
 ```json
 {
-  "stdout": "string", // Standard output from the command
-  "stderr": "string", // Standard error from the command
-  "exit_code": 0, // Exit code from the command
-  "command": "string", // The command that was executed
-  "output_files": [
-    {
-      "relative_path": "string", // Path relative to the working directory
-      "content_base64": "string" // Base64-encoded content of the file
-    }
-  ]
+  "status": "COMPLETED",
+  "exit_code": 0,
+  "stdout": "string",
+  "stderr": "string",
+  "command": ["list", "of", "args"],
+  "missing_files": [],
+  "execution_stats": {
+    "start_time": "2025-12-18T12:00:00+00:00",
+    "end_time": "2025-12-18T12:00:00.123000+00:00",
+    "duration_seconds": 0.123,
+    "max_rss_kb": 4567,
+    "cpu_user_seconds": 0.05
+  }
 }
 ```
 
@@ -84,37 +90,33 @@ The API will be available at http://localhost:8000.
 ```python
 import requests
 import json
-import os
-import base64
+from email import message_from_bytes
 
 API_URL = "http://localhost:8000/run-command"
 
-# Prepare files to upload
-files = [
-    ('input_files', ('test/example.txt', open('example.txt', 'rb'), 'text/plain')),
-    ('input_files', ('test/nested/another.txt', open('another.txt', 'rb'), 'text/plain'))
-]
-
-# Prepare form data
+# Prepare files and data
+files = [('input_files', ('hello.txt', b'Hello World!'))]
 data = {
-    'arguments': ['ls', '-la'],
-    'output_files': ['test/output.txt']
+    'arguments': ['cat', 'hello.txt'],
+    'output_files': ['hello.txt']
 }
 
-# Send request to API
+# Send request
 response = requests.post(API_URL, data=data, files=files)
 
-# Process response
-result = response.json()
-print(f"Command: {result['command']}")
-print(f"Exit code: {result['exit_code']}")
-print(f"Stdout: {result['stdout']}")
+if response.status_code == 200:
+    # Parse multipart response
+    raw_message = f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode() + response.content
+    msg = message_from_bytes(raw_message)
 
-# Process output files
-for file_data in result['output_files']:
-    file_path = file_data['relative_path']
-    content = base64.b64decode(file_data['content_base64']).decode('utf-8')
-    print(f"Output file {file_path}: {content}")
+    for part in msg.walk():
+        disposition = part.get("Content-Disposition", "")
+        if 'name="metadata"' in disposition:
+            print("Metadata:", json.loads(part.get_payload(decode=True)))
+        elif "filename=" in disposition:
+            filename = part.get_filename()
+            content = part.get_payload(decode=True)
+            print(f"Received file: {filename} ({len(content)} bytes)")
 ```
 
 ## Building Custom Images
