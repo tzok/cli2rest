@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 import logging
 import multiprocessing
 import os
@@ -12,7 +11,6 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 
 class HealthCheckFilter(logging.Filter):
@@ -40,15 +38,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CLI Tool Wrapper API", lifespan=lifespan)
 
 
-class CommandResponse(BaseModel):
-    """Model for command response with stdout, stderr, exit code."""
-
-    stdout: str
-    stderr: str
-    exit_code: int
-    command: str
-
-
 def execute_command_sync(
     arguments: List[str],
     input_files: List[UploadFile],
@@ -65,7 +54,7 @@ def execute_command_sync(
             # Extract relative path from filename
             relative_path = upload_file.filename
             if not relative_path:
-                print(f"Skipping file with empty filename")
+                print("Skipping file with empty filename")
                 continue
 
             # Get the full path for the file
@@ -95,7 +84,7 @@ def execute_command_sync(
             )
 
             # Collect requested output files
-            output_file_data = []
+            output_file_data: List[Dict[str, str | bytes]] = []
             for file_path in output_files:
                 full_path = os.path.join(temp_dir, file_path)
                 try:
@@ -206,7 +195,7 @@ async def run_command(
 
 
 @app.get("/health")
-async def health():
+async def health() -> Dict[str, Any]:
     """Health check endpoint that returns the service status."""
     return {
         "status": "healthy",
