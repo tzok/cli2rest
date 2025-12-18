@@ -3,11 +3,14 @@ import base64
 import logging
 import multiprocessing
 import os
+import resource
 import subprocess
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -42,6 +45,7 @@ def execute_command_sync(
     arguments: List[str],
     input_files: List[UploadFile],
     output_files: List[str],
+    timeout: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Execute a CLI command in a temporary directory with the provided files.
@@ -77,43 +81,88 @@ def execute_command_sync(
         # Use the temp directory as working directory
         working_dir = temp_dir
 
+        start_time = datetime.now(timezone.utc)
+        start_perf = time.perf_counter()
+        
+        stdout, stderr = "", ""
+        exit_code = None
+        status = "COMPLETED"
+        error_reason = None
+        signal_num = None
+        is_timeout = False
+
         try:
-            # Run the command
             process = subprocess.run(
-                command, cwd=working_dir, capture_output=True, text=True, check=False
+                command,
+                cwd=working_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout
             )
+            stdout = process.stdout
+            stderr = process.stderr
+            exit_code = process.returncode
+            
+            if exit_code < 0:
+                status = "SIGNALED"
+                signal_num = abs(exit_code)
+                if signal_num == 9: # Common OOM signal
+                    status = "OOM"
+                    error_reason = "Out of Memory"
+            elif exit_code != 0:
+                status = "FAILED"
 
-            # Collect requested output files
-            output_file_data: List[Dict[str, str | bytes]] = []
-            for file_path in output_files:
-                full_path = os.path.join(temp_dir, file_path)
-                try:
-                    with open(full_path, "rb") as f:
-                        content = f.read()
-                        output_file_data.append(
-                            {"relative_path": file_path, "content": content}
-                        )
-                except FileNotFoundError:
-                    # File doesn't exist, log it but don't include in results
-                    print(f"Requested output file not found: {file_path}")
-                except Exception as e:
-                    # Other errors (permission, etc.), log error
-                    print(f"Error reading output file {file_path}: {str(e)}")
-
-            # Prepare the response
-            return {
-                "stdout": process.stdout,
-                "stderr": process.stderr,
-                "exit_code": process.returncode,
-                "command": " ".join(command),
-                "output_files": output_file_data,
-            }
+        except subprocess.TimeoutExpired as e:
+            status = "TIMEOUT"
+            is_timeout = True
+            error_reason = "Command timed out"
+            stdout = e.stdout.decode() if e.stdout else ""
+            stderr = e.stderr.decode() if e.stderr else ""
         except FileNotFoundError:
             raise HTTPException(status_code=400, detail="Command not found")
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Error running command: {str(e)}"
-            )
+            raise HTTPException(status_code=500, detail=f"Error running command: {str(e)}")
+
+        end_time = datetime.now(timezone.utc)
+        duration = time.perf_counter() - start_perf
+        usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+        # Collect requested output files
+        output_file_data: List[Dict[str, Any]] = []
+        missing_files = []
+        for file_path in output_files:
+            full_path = os.path.join(temp_dir, file_path)
+            try:
+                with open(full_path, "rb") as f:
+                    content = f.read()
+                    output_file_data.append({"relative_path": file_path, "content": content})
+            except FileNotFoundError:
+                missing_files.append(file_path)
+            except Exception as e:
+                print(f"Error reading output file {file_path}: {str(e)}")
+
+        return {
+            "status": status,
+            "exit_code": exit_code,
+            "execution_stats": {
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "duration_seconds": duration,
+                "max_rss_kb": usage.ru_maxrss,
+                "cpu_user_seconds": usage.ru_utime,
+            },
+            "error_details": {
+                "reason": error_reason,
+                "signal": signal_num,
+                "is_timeout": is_timeout,
+                "missing_files": missing_files,
+            },
+            "stdout": stdout,
+            "stderr": stderr,
+            "command": " ".join(command),
+            "output_files": output_file_data,
+        }
 
 
 @app.post("/run-command")
@@ -121,6 +170,7 @@ async def run_command(
     arguments: List[str] = Form(...),
     input_files: List[UploadFile] = File(None),
     output_files: List[str] = Form([]),
+    timeout: Optional[float] = Form(None),
 ):
     """
     Run a command with the provided arguments and files.
@@ -137,6 +187,7 @@ async def run_command(
     - arguments: List of strings representing the command and its arguments
     - output_files: List of relative paths to return after execution
     - input_files: Multipart file uploads with filenames as relative paths
+    - timeout: Optional timeout in seconds for the command execution
     """
     # Handle both single file and list of files
     if input_files is None:
@@ -165,16 +216,12 @@ async def run_command(
             arguments,
             input_files,
             output_files,
+            timeout,
         )
 
         # Prepare response with base64 encoded output files
-        response_data = {
-            "stdout": result["stdout"],
-            "stderr": result["stderr"],
-            "exit_code": result["exit_code"],
-            "command": result["command"],
-            "output_files": [],
-        }
+        response_data = result.copy()
+        response_data["output_files"] = []
 
         # Add output files to response
         for file_data in result["output_files"]:
