@@ -1,5 +1,5 @@
 import asyncio
-import base64
+import json
 import logging
 import multiprocessing
 import os
@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 
 class HealthCheckFilter(logging.Filter):
@@ -39,6 +39,30 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CLI Tool Wrapper API", lifespan=lifespan)
+
+
+def create_multipart_generator(metadata: Dict[str, Any], output_files: List[Dict[str, Any]]):
+    boundary = "frame_boundary"
+
+    # 1. Send the JSON Metadata part
+    yield f"--{boundary}\r\n".encode()
+    yield b"Content-Type: application/json\r\n"
+    yield b'Content-Disposition: form-data; name="metadata"\r\n\r\n'
+    yield json.dumps(metadata).encode()
+    yield b"\r\n"
+
+    # 2. Send the Files
+    for file_data in output_files:
+        filename = file_data["relative_path"]
+        binary_content = file_data["content"]
+        yield f"--{boundary}\r\n".encode()
+        yield b"Content-Type: application/octet-stream\r\n"
+        yield f'Content-Disposition: attachment; filename="{filename}"\r\n\r\n'.encode()
+        yield binary_content
+        yield b"\r\n"
+
+    # 3. Closing boundary
+    yield f"--{boundary}--\r\n".encode()
 
 
 def execute_command_sync(
@@ -219,21 +243,14 @@ async def run_command(
             timeout,
         )
 
-        # Prepare response with base64 encoded output files
-        response_data = result.copy()
-        response_data["output_files"] = []
+        # Separate metadata from binary files
+        metadata = result.copy()
+        output_files_data = metadata.pop("output_files")
 
-        # Add output files to response
-        for file_data in result["output_files"]:
-            encoded_content = base64.b64encode(file_data["content"]).decode("utf-8")
-            response_data["output_files"].append(
-                {
-                    "relative_path": file_data["relative_path"],
-                    "content_base64": encoded_content,
-                }
-            )
-
-        return JSONResponse(content=response_data)
+        return StreamingResponse(
+            create_multipart_generator(metadata, output_files_data),
+            media_type="multipart/form-data; boundary=frame_boundary",
+        )
 
     except Exception as e:
         raise HTTPException(
