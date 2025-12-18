@@ -21,6 +21,14 @@ class HealthCheckFilter(logging.Filter):
         return record.getMessage().find("/health") == -1
 
 
+# Configure logging
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.DEBUG),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
@@ -97,18 +105,18 @@ def execute_command_sync(
     Execute a CLI command in a temporary directory with the provided files.
     This function runs synchronously and is designed to be run in a separate thread.
     """
-    print(f"Processing {len(input_files)} input files...")
+    logger.debug("Processing %d input files...", len(input_files))
 
     for upload_file in input_files:
         # Extract relative path from filename
         relative_path = upload_file.filename
         if not relative_path:
-            print("Skipping file with empty filename")
+            logger.warning("Skipping file with empty filename")
             continue
 
         # Get the full path for the file
         file_path = os.path.join(temp_dir, relative_path)
-        print(f"Processing input file: {relative_path} -> {file_path}")
+        logger.debug("Processing input file: %s -> %s", relative_path, file_path)
 
         # Create directory structure if it doesn't exist
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -118,7 +126,7 @@ def execute_command_sync(
         content_size = len(content)
         with open(file_path, "wb") as f:
             f.write(content)
-        print(f"Saved {content_size} bytes to {relative_path}")
+        logger.debug("Saved %d bytes to %s", content_size, relative_path)
 
     # Use the command as provided
     command = arguments
@@ -176,7 +184,7 @@ def execute_command_sync(
     if missing_files:
         status = "MISSING_OUTPUT_FILES"
 
-    return {
+    result = {
         "status": status,
         "exit_code": exit_code,
         "missing_files": missing_files,
@@ -192,6 +200,10 @@ def execute_command_sync(
         "command": " ".join(command),
         "output_files": output_file_data,
     }
+
+    logger.info("Command execution finished with status: %s", status)
+    logger.debug("Execution result: %s", json.dumps(result, default=str))
+    return result
 
 
 @app.post("/run-command")
