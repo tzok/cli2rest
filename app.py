@@ -83,7 +83,7 @@ def execute_command_sync(
 
         start_time = datetime.now(timezone.utc)
         start_perf = time.perf_counter()
-        
+
         stdout, stderr = "", ""
         exit_code = None
         status = "COMPLETED"
@@ -98,16 +98,16 @@ def execute_command_sync(
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=timeout
+                timeout=timeout,
             )
             stdout = process.stdout
             stderr = process.stderr
             exit_code = process.returncode
-            
+
             if exit_code < 0:
                 status = "SIGNALED"
                 signal_num = abs(exit_code)
-                if signal_num == 9: # Common OOM signal
+                if signal_num == 9:  # Common OOM signal
                     status = "OOM"
                     error_reason = "Out of Memory"
             elif exit_code != 0:
@@ -122,7 +122,9 @@ def execute_command_sync(
         except FileNotFoundError:
             raise HTTPException(status_code=400, detail="Command not found")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error running command: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error running command: {str(e)}"
+            )
 
         end_time = datetime.now(timezone.utc)
         duration = time.perf_counter() - start_perf
@@ -136,7 +138,9 @@ def execute_command_sync(
             try:
                 with open(full_path, "rb") as f:
                     content = f.read()
-                    output_file_data.append({"relative_path": file_path, "content": content})
+                    output_file_data.append(
+                        {"relative_path": file_path, "content": content}
+                    )
             except FileNotFoundError:
                 missing_files.append(file_path)
             except Exception as e:
