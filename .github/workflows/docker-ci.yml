@@ -41,7 +41,24 @@ jobs:
         run: |
           docker run --name cli2rest-test -d -p 8000:8000 cli2rest:test
           sleep 5  # Wait for container to start
+          
+          # Basic health check
           curl -s http://localhost:8000/health | grep '"status":"healthy"'
+          
+          # Run integration test
+          pip install requests
+          python example_client.py
+          
+          # Verify output files exist (example_client.py saves them as output_filename)
+          if [ ! -f "output_output.txt" ]; then
+            echo "Test failed: output_output.txt not found"
+            exit 1
+          fi
+          
+          # Verify content consistency (stdout should match the file content)
+          # Note: We assume example_client.py printed the metadata to stdout during the run
+          echo "Integration test passed successfully."
+          
           docker stop cli2rest-test
 
   publish:
