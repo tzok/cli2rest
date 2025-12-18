@@ -41,7 +41,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="CLI Tool Wrapper API", lifespan=lifespan)
 
 
-def create_multipart_generator(metadata: Dict[str, Any], output_files: List[Dict[str, Any]]):
+def create_multipart_generator(
+    metadata: Dict[str, Any], output_files: List[Dict[str, Any]]
+):
     boundary = "frame_boundary"
 
     # 1. Send the JSON Metadata part
