@@ -52,7 +52,10 @@ with tempfile.TemporaryDirectory() as temp_dir:
     if response.status_code == 200:
         # Use the email library to parse the multipart response
         # We prepend the Content-Type header so message_from_bytes can identify the boundary
-        raw_message = f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode() + response.content
+        raw_message = (
+            f"Content-Type: {response.headers.get('Content-Type')}\r\n\r\n".encode()
+            + response.content
+        )
         msg = message_from_bytes(raw_message)
 
         for part in msg.walk():
