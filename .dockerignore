@@ -1,0 +1,16 @@
+.git
+.venv
+.devenv*
+.direnv
+devenv.local.nix
+devenv.local.yaml
+.pre-commit-config.yaml
+output_*.txt
+Dockerfile
+.dockerignore
+.github
+AGENTS.md
+README.md
+pyproject.toml
+uv.lock
+.python-version
