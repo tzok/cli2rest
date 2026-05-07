@@ -13,8 +13,6 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  UV_VERSION: 0.11.11
-  DEFAULT_PYTHON: "3.13"
 
 jobs:
   build-and-test:
@@ -49,7 +47,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          version: "${{ env.UV_VERSION }}"
           enable-cache: true
 
       - name: Set up Docker Buildx
@@ -63,7 +60,7 @@ jobs:
           load: true
           tags: cli2rest:test
           build-args: |
-            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:${{ env.UV_VERSION }}-python${{ matrix.python }}-trixie-slim
+            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python${{ matrix.python }}-trixie-slim
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -186,6 +183,6 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ steps.tags.outputs.labels }}
           build-args: |
-            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:${{ env.UV_VERSION }}-python${{ matrix.python }}-trixie-slim
+            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python${{ matrix.python }}-trixie-slim
           cache-from: type=gha
           cache-to: type=gha,mode=max
