@@ -15,6 +15,9 @@ devenv.local.yaml
 # Test outputs
 output_*.txt
 
+# AGENTS (not part of the repository)
+AGENTS.md
+
 # Python
 __pycache__/
 *.py[cod]

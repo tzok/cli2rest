@@ -11,6 +11,4 @@ Dockerfile
 .github
 AGENTS.md
 README.md
-pyproject.toml
-uv.lock
 .python-version
