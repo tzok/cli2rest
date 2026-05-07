@@ -43,6 +43,17 @@ docker pull ghcr.io/tzok/cli2rest:py3.13
 docker pull ghcr.io/tzok/cli2rest:py3.14
 ```
 
+Versioned release tags are also published on versioned releases:
+
+```bash
+docker pull ghcr.io/tzok/cli2rest:1.2.3
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.10
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.11
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.12
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.13
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.14
+```
+
 ### Building the Docker Image Locally
 
 Build the default image (Python 3.13):
@@ -55,7 +66,7 @@ Build an image for a different Python version:
 
 ```bash
 docker build \
-  --build-arg UV_BASE_IMAGE=ghcr.io/astral-sh/uv:0.11.11-python3.12-trixie-slim \
+  --build-arg UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python3.12-trixie-slim \
   -t cli2rest:py3.12 .
 ```
 
