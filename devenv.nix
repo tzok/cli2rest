@@ -8,9 +8,12 @@
 {
   languages.python = {
     enable = true;
-    venv = {
+    uv = {
       enable = true;
-      requirements = ./requirements.txt;
+      sync = {
+        enable = true;
+        arguments = [ "--locked" ];
+      };
     };
   };
 }

@@ -8,3 +8,15 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+# uv
+.venv/
+
+# Test outputs
+output_*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
