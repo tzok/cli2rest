@@ -14,9 +14,12 @@ A FastAPI wrapper that allows running any CLI tool through a REST API. This serv
 ### Prerequisites
 
 - Docker
-- Python 3.8+ (for local development)
+- [uv](https://docs.astral.sh/uv/)
+- Python 3.10+ (for local development)
 
 ### Using the Pre-built Image
+
+The default published image is based on **Python 3.13**.
 
 Pull the image from GitHub Container Registry:
 
@@ -30,12 +33,30 @@ Run the container:
 docker run -p 8000:8000 ghcr.io/tzok/cli2rest:latest
 ```
 
+Explicit Python variants are also published:
+
+```bash
+docker pull ghcr.io/tzok/cli2rest:py3.10
+docker pull ghcr.io/tzok/cli2rest:py3.11
+docker pull ghcr.io/tzok/cli2rest:py3.12
+docker pull ghcr.io/tzok/cli2rest:py3.13
+docker pull ghcr.io/tzok/cli2rest:py3.14
+```
+
 ### Building the Docker Image Locally
 
-Build the Docker image with:
+Build the default image (Python 3.13):
 
 ```bash
 docker build -t cli2rest .
+```
+
+Build an image for a different Python version:
+
+```bash
+docker build \
+  --build-arg UV_BASE_IMAGE=ghcr.io/astral-sh/uv:0.11.11-python3.12-trixie-slim \
+  -t cli2rest:py3.12 .
 ```
 
 ### Running the Container
@@ -47,6 +68,36 @@ docker run -p 8000:8000 cli2rest
 ```
 
 The API will be available at http://localhost:8000.
+
+## Local Development
+
+Install dependencies and run the server:
+
+```bash
+uv sync --locked
+uv run uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Run with auto-reload:
+
+```bash
+uv run uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Run the integration test (requires a running server on port 8000):
+
+```bash
+uv run example_client.py
+ls output_output.txt  # should exist after successful run
+```
+
+Manage dependencies:
+
+```bash
+uv add <package>
+uv remove <package>
+uv lock --upgrade-package <package>
+```
 
 ## API Usage
 
@@ -153,10 +204,11 @@ docker build -t custom-cli2rest .
 docker run -p 8000:8000 custom-cli2rest
 ```
 
-**Note:** The base image includes the `requests` library. This allows for convenient healthchecks in Docker Compose, for example:
+**Note:** The base image does not include the `requests` library. For healthchecks, use the Python standard library:
+
 ```yaml
 healthcheck:
-  test: ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/health').raise_for_status()\" || exit 1"]
+  test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
   interval: 30s
   timeout: 10s
   retries: 3

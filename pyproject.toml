@@ -1,0 +1,15 @@
+[project]
+name = "cli2rest"
+version = "0.0.0"
+description = "Wrap arbitrary CLI tools as a FastAPI service"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi==0.136.1",
+    "uvicorn==0.46.0",
+    "python-multipart==0.0.27",
+]
+
+[dependency-groups]
+dev = [
+    "requests==2.33.1",
+]

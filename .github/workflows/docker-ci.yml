@@ -17,16 +17,41 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - python: "3.10"
+            is_default: false
+          - python: "3.11"
+            is_default: false
+          - python: "3.12"
+            is_default: false
+          - python: "3.13"
+            is_default: true
+          - python: "3.14"
+            is_default: false
     permissions:
       contents: read
       packages: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-      
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
-      
+
       - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
@@ -34,41 +59,58 @@ jobs:
           push: false
           load: true
           tags: cli2rest:test
+          build-args: |
+            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python${{ matrix.python }}-trixie-slim
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Test Docker image
         run: |
           docker run --name cli2rest-test -d -p 8000:8000 cli2rest:test
-          sleep 5  # Wait for container to start
-          
+          sleep 5
+
           # Basic health check
           curl -s http://localhost:8000/health | grep '"status":"healthy"'
-          
+
           # Run integration test
-          pip install requests
-          python example_client.py
-          
-          # Verify output files exist (example_client.py saves them as output_filename)
+          uv sync --locked
+          uv run example_client.py
+
+          # Verify output files exist
           if [ ! -f "output_output.txt" ]; then
             echo "Test failed: output_output.txt not found"
             exit 1
           fi
-          
-          # Verify content consistency (stdout should match the file content)
-          # Note: We assume example_client.py printed the metadata to stdout during the run
+
           echo "Integration test passed successfully."
-          
-          docker stop cli2rest-test
+
+      - name: Cleanup test container
+        if: always()
+        run: |
+          docker stop cli2rest-test || true
+          docker rm cli2rest-test || true
 
   publish:
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Only run this job if it's a push to main, tag, merged PR, manual trigger, or scheduled run
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - python: "3.10"
+            is_default: false
+          - python: "3.11"
+            is_default: false
+          - python: "3.12"
+            is_default: false
+          - python: "3.13"
+            is_default: true
+          - python: "3.14"
+            is_default: false
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') || 
       startsWith(github.ref, 'refs/tags/') || 
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule'
     permissions:
@@ -88,24 +130,59 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
+      - name: Extract metadata (default tags)
+        id: meta-default
+        if: matrix.is_default == true
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=raw,value=latest
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=ref,event=branch
             type=sha,format=short
-            latest
+
+      - name: Extract metadata (variant tags)
+        id: meta-variant
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=py${{ matrix.python }}
+            type=semver,pattern={{version}},suffix=-py${{ matrix.python }}
+            type=semver,pattern={{major}}.{{minor}},suffix=-py${{ matrix.python }}
+            type=ref,event=branch,suffix=-py${{ matrix.python }}
+            type=sha,format=short,suffix=-py${{ matrix.python }}
+
+      - name: Merge tags and labels
+        id: tags
+        env:
+          DEFAULT_TAGS: ${{ steps.meta-default.outputs.tags }}
+          VARIANT_TAGS: ${{ steps.meta-variant.outputs.tags }}
+          DEFAULT_LABELS: ${{ steps.meta-default.outputs.labels }}
+          VARIANT_LABELS: ${{ steps.meta-variant.outputs.labels }}
+        run: |
+          {
+            echo "tags<<EOF"
+            [ -n "$DEFAULT_TAGS" ] && echo "$DEFAULT_TAGS"
+            [ -n "$VARIANT_TAGS" ] && echo "$VARIANT_TAGS"
+            echo "EOF"
+
+            echo "labels<<EOF"
+            [ -n "$DEFAULT_LABELS" ] && echo "$DEFAULT_LABELS"
+            [ -n "$VARIANT_LABELS" ] && echo "$VARIANT_LABELS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: ${{ steps.tags.outputs.labels }}
+          build-args: |
+            UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python${{ matrix.python }}-trixie-slim
           cache-from: type=gha
           cache-to: type=gha,mode=max
