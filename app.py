@@ -32,6 +32,14 @@ logger = logging.getLogger(__name__)
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
+def normalize_subprocess_output(output: Optional[Any]) -> str:
+    if output is None:
+        return ""
+    if isinstance(output, bytes):
+        return output.decode(errors="replace")
+    return output
+
+
 # Create a thread pool with the number of CPU cores
 MAX_WORKERS = multiprocessing.cpu_count()
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
@@ -158,8 +166,8 @@ def execute_command_sync(
             status = "FAILED"
     except subprocess.TimeoutExpired as e:
         status = "TIMEOUT"
-        stdout = e.stdout.decode() if e.stdout else ""
-        stderr = e.stderr.decode() if e.stderr else ""
+        stdout = normalize_subprocess_output(e.stdout)
+        stderr = normalize_subprocess_output(e.stderr)
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Command not found")
     except Exception as e:
@@ -181,7 +189,7 @@ def execute_command_sync(
         else:
             missing_files.append(file_path)
 
-    if missing_files:
+    if status == "COMPLETED" and missing_files:
         status = "MISSING_OUTPUT_FILES"
 
     result: Dict[str, Any] = {
@@ -210,7 +218,7 @@ def execute_command_sync(
 @app.post("/run-command")
 async def run_command(
     arguments: List[str] = Form(...),
-    input_files: List[UploadFile] = File(None),
+    input_files: Optional[List[UploadFile]] = File(None),
     output_files: List[str] = Form([]),
     timeout: Optional[float] = Form(None),
 ):
@@ -232,6 +240,7 @@ async def run_command(
     - timeout: Optional timeout in seconds for the command execution
     """
     assert isinstance(arguments, list), "Arguments must be a list of strings"
+    input_files = input_files or []
 
     try:
         # Read file contents into memory first (async operation)
