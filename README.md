@@ -123,10 +123,13 @@ uv lock --upgrade-package <package>
 - `arguments` (list): List of strings representing the command and its arguments
 - `input_files` (files): Multiple file uploads with filenames as relative paths
 - `output_files` (list): List of relative paths to return after execution
+- `timeout` (number, optional): Maximum command runtime in seconds
 
 **Response:**
 
 The response is a `multipart/form-data` stream. The first part is a JSON object containing execution metadata, followed by any requested output files as separate binary parts.
+
+If a command exceeds `timeout`, the metadata part reports `status` as `TIMEOUT` and `exit_code` as `null`.
 
 **Metadata JSON structure:**
 ```json
@@ -180,6 +183,20 @@ if response.status_code == 200:
             content = part.get_payload(decode=True)
             print(f"Received file: {filename} ({len(content)} bytes)")
 ```
+
+### Example With Timeout
+
+Use the `timeout` form field to stop long-running commands:
+
+```bash
+curl -X POST http://localhost:8000/run-command \
+  -F 'arguments=bash' \
+  -F 'arguments=-lc' \
+  -F 'arguments=sleep 10; echo done' \
+  -F 'timeout=2'
+```
+
+The response format is unchanged. Check the `metadata` part of the multipart response for the `TIMEOUT` status.
 
 ## Building Custom Images
 
