@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import os
 import resource
+import signal
 import subprocess
 import tempfile
 import time
@@ -150,24 +151,30 @@ def execute_command_sync(
     status = "COMPLETED"
 
     try:
-        process = subprocess.run(
+        # Run in a new session so we can kill the whole process group on timeout
+        process = subprocess.Popen(
             command,
             cwd=working_dir,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            check=False,
-            timeout=timeout,
+            start_new_session=True,
         )
-        stdout = process.stdout
-        stderr = process.stderr
-        exit_code = process.returncode
-
-        if exit_code != 0:
-            status = "FAILED"
-    except subprocess.TimeoutExpired as e:
-        status = "TIMEOUT"
-        stdout = normalize_subprocess_output(e.stdout)
-        stderr = normalize_subprocess_output(e.stderr)
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+            exit_code = process.returncode
+            if exit_code != 0:
+                status = "FAILED"
+        except subprocess.TimeoutExpired:
+            status = "TIMEOUT"
+            # Kill the entire process group, not just the direct child
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = process.communicate()
+            stdout = normalize_subprocess_output(stdout)
+            stderr = normalize_subprocess_output(stderr)
     except FileNotFoundError:
         raise HTTPException(status_code=400, detail="Command not found")
     except Exception as e:
