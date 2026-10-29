@@ -1,4 +1,4 @@
-ARG UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python3.13-trixie-slim
+ARG UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python3.14-trixie-slim
 FROM ${UV_BASE_IMAGE}
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
