@@ -15,11 +15,14 @@ A FastAPI wrapper that allows running any CLI tool through a REST API. This serv
 
 - Docker
 - [uv](https://docs.astral.sh/uv/)
-- Python 3.10+ (for local development)
+- Python 3.11+ (for local development)
 
 ### Using the Pre-built Image
 
-The default published image is based on **Python 3.13**.
+The default published image is based on **Python 3.14**.
+
+The image is built and published for all security-supported Python versions:
+3.11, 3.12, 3.13, 3.14, and 3.15.
 
 Pull the image from GitHub Container Registry:
 
@@ -36,27 +39,27 @@ docker run -p 8000:8000 ghcr.io/tzok/cli2rest:latest
 Explicit Python variants are also published:
 
 ```bash
-docker pull ghcr.io/tzok/cli2rest:py3.10
 docker pull ghcr.io/tzok/cli2rest:py3.11
 docker pull ghcr.io/tzok/cli2rest:py3.12
 docker pull ghcr.io/tzok/cli2rest:py3.13
 docker pull ghcr.io/tzok/cli2rest:py3.14
+docker pull ghcr.io/tzok/cli2rest:py3.15
 ```
 
 Versioned release tags are also published on versioned releases:
 
 ```bash
 docker pull ghcr.io/tzok/cli2rest:1.2.3
-docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.10
 docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.11
 docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.12
 docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.13
 docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.14
+docker pull ghcr.io/tzok/cli2rest:1.2.3-py3.15
 ```
 
 ### Building the Docker Image Locally
 
-Build the default image (Python 3.13):
+Build the default image (Python 3.14):
 
 ```bash
 docker build -t cli2rest .
@@ -66,8 +69,8 @@ Build an image for a different Python version:
 
 ```bash
 docker build \
-  --build-arg UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python3.12-trixie-slim \
-  -t cli2rest:py3.12 .
+  --build-arg UV_BASE_IMAGE=ghcr.io/astral-sh/uv:python3.15-trixie-slim \
+  -t cli2rest:py3.15 .
 ```
 
 ### Running the Container
