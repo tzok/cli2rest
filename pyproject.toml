@@ -13,3 +13,11 @@ dependencies = [
 dev = [
     "requests",
 ]
+
+[tool.uv]
+# Single source of truth for the uv version: astral-sh/setup-uv reads this
+# when a workflow does not pass a version input, and uv itself refuses to run
+# with an older release. The floor must not exceed the uv version provided by
+# the devenv shell, nor the uv bundled in the base image used by the
+# Dockerfile (ghcr.io/astral-sh/uv:pythonX.Y-trixie-slim).
+required-version = ">=0.13.4"
